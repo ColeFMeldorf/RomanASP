@@ -433,16 +433,26 @@ def main():
             if use_real_images:
                 detections = exposures[np.where(exposures['DETECTED'])]
                 parq_file = find_parq(ID, path = sn_path)
-                df = open_parq(parq_file, path = sn_path)
+                if len(str(ID)) != 11:
+                    df = open_parq(parq_file, path = sn_path)
+                else:
+                    df = pd.read_parquet(sn_path+'/pointsource_'+str(parq_file)+'.parquet', engine='fastparquet')
                 lc['true_flux'] = detections['realized flux']
                 lc['MJD'] = detections['date']
-                lc['confusion metric'] = confusion_metric
-                lc['host_sep'] = df['host_sn_sep'][df['id'] == ID].values[0]
-                lc['host_mag_g'] = df[f'host_mag_g'][df['id'] == ID].values[0]
-                lc['sn_ra'] = df['ra'][df['id'] == ID].values[0]
-                lc['sn_dec'] = df['dec'][df['id'] == ID].values[0]
-                lc['host_ra'] = df['host_ra'][df['id'] == ID].values[0]
-                lc['host_dec'] = df['host_dec'][df['id'] == ID].values[0]
+
+                if len(str(ID)) != 11:
+                    #Supernovae 
+                    lc['confusion metric'] = confusion_metric
+                    lc['host_sep'] = df['host_sn_sep'][df['id'] == ID].values[0]
+                    lc['host_mag_g'] = df[f'host_mag_g'][df['id'] == ID].values[0]
+                    lc['sn_ra'] = df['ra'][df['id'] == ID].values[0]
+                    lc['sn_dec'] = df['dec'][df['id'] == ID].values[0]
+                    lc['host_ra'] = df['host_ra'][df['id'] == ID].values[0]
+                    lc['host_dec'] = df['host_dec'][df['id'] == ID].values[0]
+                else:
+                    #Stars
+                    lc['ra'] = df['ra'][df['id'] == str(ID)].values[0]
+                    lc['dec'] = df['dec'][df['id'] == str(ID)].values[0]
 
             else:
                 lc['true_flux'] = supernova

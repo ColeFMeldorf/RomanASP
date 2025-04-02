@@ -659,16 +659,24 @@ def find_parq(ID, path = '/hpc/group/cosmology/OpenUniverse2024/roman_rubin_cats
     Find the parquet file that contains a given supernova ID.
     '''
     files = os.listdir(path)
+
+    star = True if len(str(ID)) == 11 else False
+    
     if star:
         files = [f for f in files if 'pointsource' in f]
         files = [f for f in files if 'flux' not in f]
     else:
         files = [f for f in files if 'snana' in f]
     files = [f for f in files if '.parquet' in f]
+
     for f in files:
         pqfile = int(f.split('_')[1].split('.')[0])
-        df = open_parq(pqfile, path)
-        if ID in df.id.values:
+        if star:
+            df = pd.read_parquet(path+'/pointsource_'+str(pqfile)+'.parquet', engine='fastparquet')
+        else:
+            df = open_parq(pqfile, path)
+
+        if ID in df.id.values or str(ID) in df.id.values:
             return pqfile
 
 def open_parq(ID, path = '/cwork/mat90/RomanDESC_sims_2024/roman_rubin_cats_v1.1.2_faint'):
@@ -677,6 +685,18 @@ def open_parq(ID, path = '/cwork/mat90/RomanDESC_sims_2024/roman_rubin_cats_v1.1
     '''
     df = pd.read_parquet(path+'/snana_'+str(ID)+'.parquet', engine='fastparquet')
     return df
+
+
+def star_to_loc(starID, parq, band, path):
+    '''
+    Returns the RA and DEC of a star given its ID.
+    '''
+    df = pd.read_parquet(path+'/pointsource_'+str(parq)+'.parquet', engine='fastparquet')
+    df = df.loc[df.id == str(starID)]
+    RA, DEC = df.ra.values[0], df.dec.values[0]
+    return RA, DEC
+
+
 
 def SNID_to_loc(SNID, parq, band, date = False,\
      snpath = '/cwork/mat90/RomanDESC_sims_2024/roman_rubin_cats_v1.1.2_faint/', roman_path = None, host = False):
@@ -953,9 +973,20 @@ def getPSF_Image(self,stamp_size,x=None,y=None, x_center = None, y_center= None,
     return result
 
 def fetchImages(testnum, detim, ID, sn_path, band, size, fit_background):
-    pqfile = find_parq(ID, sn_path)
-    ra, dec, p, s, start, end, peak, galra, galdec = \
-        SNID_to_loc(ID, pqfile, date = True, band = band, snpath = sn_path, roman_path = roman_path, host = True)
+
+    if len(str(ID)) != 8:
+        print('WARNING: Fitting SMP on a star. You probably want the grid off.')
+        pqfile = find_parq(ID, sn_path, star = True)
+        ra, dec = star_to_loc(ID, pqfile, band, sn_path)
+        start = [0]
+        end = [np.inf]
+        peak = [0]
+
+    else:
+        pqfile = find_parq(ID, sn_path, star = False)
+        ra, dec, p, s, start, end, peak, galra, galdec = \
+            SNID_to_loc(ID, pqfile, date = True, band = band, snpath = sn_path, roman_path = roman_path, host = True)
+
     snra = ra
     sndec = dec
     start = start[0]
